@@ -25,24 +25,13 @@ static void _make_filename(char *buf, size_t buf_size, const char *description) 
     // Increment counter for each new log file
     log_file_counter++;
     
-    // Create unique filename: uptimeSec_counter_description
-    // Example: 001234_000042_hover.csv
-    snprintf(buf, buf_size, "%s/%06lu_%06lu_%s.csv",
-        SPIFFS_LOG_DIR,
-        uptime_sec % 1000000,       // 6-digit uptime seconds (modulo for overflow)
-        log_file_counter % 1000000, // 6-digit counter
+    // SPIFFS is flat filesystem — no subdirectories
+    // Format: /bb_XXXXXX_XXXXXX_description.csv
+    snprintf(buf, buf_size, "/bb_%06lu_%06lu_%s.csv",
+        uptime_sec % 1000000,
+        log_file_counter % 1000000,
         description
     );
-}
-
-/**
- * Initialize directory if not exists
- */
-static void _ensure_dir() {
-    if (!SPIFFS.exists(SPIFFS_LOG_DIR)) {
-        SPIFFS.mkdir(SPIFFS_LOG_DIR);
-        Serial.println("[SPIFFS] Created blackbox directory");
-    }
 }
 
 // ===== PUBLIC API =====
@@ -53,7 +42,6 @@ void SPIFFS_init() {
         return;
     }
     
-    _ensure_dir();
     Serial.println("[SPIFFS] ✓ Initialized");
     SPIFFS_printStats();
 }
@@ -63,7 +51,6 @@ void SPIFFS_startLog(const char *description) {
         SPIFFS_stopLog();  // Stop previous session
     }
     
-    _ensure_dir();
     _make_filename(spiffs_logger.filename, sizeof(spiffs_logger.filename), description);
     
     spiffs_logger.current_file = SPIFFS.open(spiffs_logger.filename, "w");
@@ -131,7 +118,7 @@ void SPIFFS_log_data(
 
 void SPIFFS_exportCSV(const char *filename) {
     char filepath[128];
-    snprintf(filepath, sizeof(filepath), "%s/%s", SPIFFS_LOG_DIR, filename);
+    snprintf(filepath, sizeof(filepath), "/%s", filename);
     
     if (!SPIFFS.exists(filepath)) {
         Serial.printf("[SPIFFS] ✗ File not found: %s\n", filepath);
@@ -160,9 +147,7 @@ void SPIFFS_exportCSV(const char *filename) {
 }
 
 void SPIFFS_listFiles() {
-    _ensure_dir();
-    
-    File dir = SPIFFS.open(SPIFFS_LOG_DIR);
+    File dir = SPIFFS.open("/");
     File file = dir.openNextFile();
     
     Serial.println("[SPIFFS] Log files:");
@@ -180,7 +165,7 @@ void SPIFFS_listFiles() {
 
 bool SPIFFS_deleteFile(const char *filename) {
     char filepath[128];
-    snprintf(filepath, sizeof(filepath), "%s/%s", SPIFFS_LOG_DIR, filename);
+    snprintf(filepath, sizeof(filepath), "/%s", filename);
     
     if (!SPIFFS.exists(filepath)) {
         Serial.printf("[SPIFFS] ✗ File not found: %s\n", filepath);

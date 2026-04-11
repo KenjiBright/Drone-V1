@@ -17,7 +17,7 @@
 //   - SPIFFS_exportCSV() — xuất CSV qua Serial
 //   - SPIFFS_listFiles() — xem danh sách file log
 
-#define SPIFFS_LOG_DIR "/blackbox"
+#define SPIFFS_LOG_DIR "/"
 #define SPIFFS_MAX_FILES 10
 #define CSV_BUFFER_SIZE 256
 
