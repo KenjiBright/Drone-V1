@@ -67,7 +67,7 @@ Professional-grade quadcopter flight controller firmware for ESP32-based racing 
 
 ---
 
-## 🛠️ Setup & Build
+## Setup & Build
 
 ### Prerequisites
 - **PlatformIO** (VSCode + PlatformIO extension)
