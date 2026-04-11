@@ -2,7 +2,81 @@
 
 Công cụ hỗ trợ cho Drone V1 Flight Controller.
 
-## 📊 capture_blackbox.py
+## � download_spiffs_csv.py
+
+Python script để tải về log files từ SPIFFS firmware (bộ nhớ nội bộ ESP32).
+
+> **⭐ Phương pháp này không xung đột cổng COM** — Có thể capture dữ liệu bay mà không cần ngắt Serial Monitor!
+
+### Quy trình bay
+
+```
+1. Kết nối drone qua USB
+2. Nhấn 1 → nhập description → tập đê log
+3. Bay máy bay từ 1-30 phút
+4. Nhấn E để dừng log
+5. Ngắt kết nối USB
+6. Kết nối lại và download CSV file từ SPIFFS
+```
+
+### Cài đặt
+
+```bash
+pip install -r requirements.txt
+```
+
+### Sử dụng
+
+#### Quick Start (Windows)
+```bash
+download_spiffs.bat
+```
+hoặc chỉ định COM port:
+```bash
+download_spiffs.bat COM17
+```
+
+#### Quick Start (Linux/Mac)
+```bash
+chmod +x download_spiffs.sh
+./download_spiffs.sh
+```
+
+#### Python Command
+
+```bash
+# List all files on SPIFFS
+python download_spiffs_csv.py --port COM17 --list
+
+# Interactive menu
+python download_spiffs_csv.py --port COM17
+
+# Download specific file
+python download_spiffs_csv.py --port COM17 --download 20260412_143630_hover.csv --output ./logs
+```
+
+### Output
+
+```
+✓ Connected to COM17 @ 115200 baud
+
+[SPIFFS] Available files:
+  1. 20260412_143630_hover.csv (1245 bytes)
+  2. 20260412_143700_acro_test.csv (2850 bytes)
+  3. 20260412_143745_pid_tune.csv (3120 bytes)
+
+[SPIFFS] Capacity: 256 KB, Used: 12 KB (4.7%)
+
+[DOWNLOAD] Requesting 20260412_143630_hover.csv...
+  [Started receiving CSV...]
+  [Finished receiving CSV]
+✓ Downloaded 150 lines → 20260412_143630_hover.csv
+  File size: 1245 bytes
+```
+
+---
+
+## �📊 capture_blackbox.py
 
 Python script để capture, lưu và phân tích Black Box data từ drone.
 

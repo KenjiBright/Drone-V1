@@ -5,7 +5,7 @@
 #include "SBUS_Receiver.h"
 #include "Calibration.h"
 #include "LED_Control.h"
-#include "BlackBox.h"
+#include "SPIFFS_Logger.h"
 #include "Buzzer.h"
 
 // ===== CẤU HÌNH =====
@@ -40,7 +40,7 @@ TaskHandle_t TaskCore0_Handle;
 TaskHandle_t TaskCore1_Handle;
 
 // ===== MENU STATE =====
-enum MenuMode { MODE_MAIN, MODE_LOG, MODE_CALIB, MODE_PID };
+enum MenuMode { MODE_MAIN, MODE_LOG, MODE_CALIB, MODE_PID, MODE_EXPORT };
 static MenuMode menu_mode    = MODE_MAIN;
 static String   serial_buf   = "";
 
@@ -53,16 +53,17 @@ void print_main_menu() {
   Serial.println("\n==============================");
   Serial.println("         MENU CHINH           ");
   Serial.println("==============================");
-  Serial.println(" 1) Black Box Log (CSV)");
+  Serial.println(" 1) Black Box Log (SPIFFS)");
   Serial.println(" 2) Calibration");
   Serial.println(" 3) PID Tuning (Live)");
+  Serial.println(" 4) List / Export Black Box Files");
   Serial.println("  >> Nhan E de thoat bat ky mode nao");
   Serial.println("==============================\n");
 }
 
 void exit_current_mode() {
-  if (menu_mode == MODE_LOG && BlackBox_is_active()) {
-    BlackBox_toggle();
+  if (menu_mode == MODE_LOG) {
+    SPIFFS_stopLog();
   }
   menu_mode = MODE_MAIN;
   serial_buf = "";
@@ -144,8 +145,7 @@ void process_command(const String& cmd) {
       if      (cmd == "1") {
         menu_mode = MODE_LOG;
         beep();
-        BlackBox_toggle();
-        Serial.println("  >> Nhan E de dung va thoat ve menu chinh.");
+        Serial.print("[SPIFFS] Log description (default=log): ");
       }
       else if (cmd == "2") {
         menu_mode = MODE_CALIB;
@@ -168,13 +168,29 @@ void process_command(const String& cmd) {
           pid_yaw.Kp,   pid_yaw.Ki,   pid_yaw.Kd,   pid_yaw.max_integral,   pid_yaw.max_output,   pid_yaw.d_lpf_tf);
         Serial.println("---");
       }
+      else if (cmd == "4") {
+        menu_mode = MODE_EXPORT;
+        beep();
+        Serial.println("\n[SPIFFS] Available log files:");
+        SPIFFS_listFiles();
+        SPIFFS_printStats();
+        Serial.print("[SPIFFS] Export filename (e.g., 20260412_143630_hover.csv) or ENTER to skip: ");
+      }
       else {
         print_main_menu();
       }
       break;
 
     case MODE_LOG:
-      // Chỉ E thoát (đã xử lý trước khi gọi hàm này)
+      // Start logging with description
+      {
+        String desc = cmd.length() > 0 ? cmd : "log";
+        SPIFFS_startLog(desc.c_str());
+        beep();
+        Serial.println("[SPIFFS] LOGGING STARTED - Press E to stop");
+        Serial.println("[SPIFFS] Returning to main menu (logging continues in background)");
+        menu_mode = MODE_MAIN;
+      }
       break;
 
     case MODE_CALIB: {
@@ -216,6 +232,26 @@ void process_command(const String& cmd) {
     case MODE_PID:
       handle_pid_command(cmd);
       break;
+
+    case MODE_EXPORT:
+      if (cmd.length() == 0) {
+        Serial.println("[SPIFFS] Skipped");
+        menu_mode = MODE_MAIN;
+        print_main_menu();
+      } else {
+        // Append .csv if not present
+        String filename = cmd;
+        if (!filename.endsWith(".csv")) {
+          filename += ".csv";
+        }
+        // Export file contents
+        SPIFFS_exportCSV(filename.c_str());
+        beep();
+        Serial.println("[SPIFFS] Returning to main menu");
+        menu_mode = MODE_MAIN;
+        print_main_menu();
+      }
+      break;
   }
 }
 
@@ -245,9 +281,9 @@ void handle_serial() {
       return;
     }
 
-    // Phím đơn không cần Enter: chọn menu chính (1/2/3)
+    // Phím đơn không cần Enter: chọn menu chính (1/2/3/4)
     if (menu_mode == MODE_MAIN && serial_buf.length() == 0 &&
-        (c == '1' || c == '2' || c == '3')) {
+        (c == '1' || c == '2' || c == '3' || c == '4')) {
       String s(c);
       process_command(s);
       return;
@@ -347,7 +383,7 @@ void TaskCore1(void *pvParameters) {
 
     PWM_motor(m1, m2, m3, m4, armed);
 
-    BlackBox_log(
+    SPIFFS_log_data(
       throttle,
       target_roll,      IMU_get_rate_roll(),  pid_roll.last_p,  pid_roll.last_i,  pid_roll.last_d,
       target_pitch,     IMU_get_rate_pitch(), pid_pitch.last_p, pid_pitch.last_i, pid_pitch.last_d,
@@ -374,7 +410,7 @@ void setup() {
   IMU_begin();
   IMU_calibrate();
   LED_setup();
-  BlackBox_init();
+  SPIFFS_init();
 
   // Khoi tao buzzer
   buzzer_init();
