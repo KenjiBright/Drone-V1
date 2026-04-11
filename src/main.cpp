@@ -40,9 +40,10 @@ TaskHandle_t TaskCore0_Handle;
 TaskHandle_t TaskCore1_Handle;
 
 // ===== MENU STATE =====
-enum MenuMode { MODE_MAIN, MODE_LOG, MODE_CALIB, MODE_PID, MODE_EXPORT };
+enum MenuMode { MODE_MAIN, MODE_LOG, MODE_CALIB, MODE_PID, MODE_EXPORT, MODE_DELETE, MODE_DELETE_CONFIRM };
 static MenuMode menu_mode    = MODE_MAIN;
 static String   serial_buf   = "";
+static String   pending_delete_file = "";  // Store filename pending deletion
 
 
 // =========================================================
@@ -57,6 +58,7 @@ void print_main_menu() {
   Serial.println(" 2) Calibration");
   Serial.println(" 3) PID Tuning (Live)");
   Serial.println(" 4) List / Export Black Box Files");
+  Serial.println(" 5) Delete Old Log Files");
   Serial.println("  >> Nhan E de thoat bat ky mode nao");
   Serial.println("==============================\n");
 }
@@ -64,6 +66,9 @@ void print_main_menu() {
 void exit_current_mode() {
   if (menu_mode == MODE_LOG) {
     SPIFFS_stopLog();
+  }
+  if (menu_mode == MODE_DELETE_CONFIRM) {
+    pending_delete_file = "";
   }
   menu_mode = MODE_MAIN;
   serial_buf = "";
@@ -176,6 +181,14 @@ void process_command(const String& cmd) {
         SPIFFS_printStats();
         Serial.print("[SPIFFS] Export filename (e.g., 20260412_143630_hover.csv) or ENTER to skip: ");
       }
+      else if (cmd == "5") {
+        menu_mode = MODE_DELETE;
+        beep();
+        Serial.println("\n[SPIFFS] Available log files:");
+        SPIFFS_listFiles();
+        SPIFFS_printStats();
+        Serial.print("[SPIFFS] Delete filename (e.g., 20260412_143630_hover.csv) or ENTER to skip: ");
+      }
       else {
         print_main_menu();
       }
@@ -252,6 +265,47 @@ void process_command(const String& cmd) {
         print_main_menu();
       }
       break;
+
+    case MODE_DELETE:
+      if (cmd.length() == 0) {
+        Serial.println("[SPIFFS] Delete cancelled");
+        menu_mode = MODE_MAIN;
+        print_main_menu();
+      } else {
+        // Append .csv if not present
+        String filename = cmd;
+        if (!filename.endsWith(".csv")) {
+          filename += ".csv";
+        }
+        // Save filename and ask for confirmation
+        pending_delete_file = filename;
+        menu_mode = MODE_DELETE_CONFIRM;
+        Serial.print("[SPIFFS] Confirm delete ");
+        Serial.print(filename);
+        Serial.println("? Type 'YES' to confirm or 'no' to cancel: ");
+      }
+      break;
+
+    case MODE_DELETE_CONFIRM:
+      if (cmd == "YES" || cmd == "yes") {
+        beep();
+        if (SPIFFS_deleteFile(pending_delete_file.c_str())) {
+          Serial.println("[SPIFFS] File deleted successfully");
+        } else {
+          Serial.println("[SPIFFS] Failed to delete file");
+        }
+        pending_delete_file = "";
+        menu_mode = MODE_MAIN;
+        print_main_menu();
+      } else if (cmd == "no" || cmd == "NO" || cmd == "cancel") {
+        Serial.println("[SPIFFS] Delete cancelled");
+        pending_delete_file = "";
+        menu_mode = MODE_MAIN;
+        print_main_menu();
+      } else {
+        Serial.println("[SPIFFS] Invalid input. Type 'YES' to confirm or 'no' to cancel: ");
+      }
+      break;
   }
 }
 
@@ -281,9 +335,9 @@ void handle_serial() {
       return;
     }
 
-    // Phím đơn không cần Enter: chọn menu chính (1/2/3/4)
+    // Phím đơn không cần Enter: chọn menu chính (1/2/3/4/5)
     if (menu_mode == MODE_MAIN && serial_buf.length() == 0 &&
-        (c == '1' || c == '2' || c == '3' || c == '4')) {
+        (c == '1' || c == '2' || c == '3' || c == '4' || c == '5')) {
       String s(c);
       process_command(s);
       return;
