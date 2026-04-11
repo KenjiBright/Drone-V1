@@ -9,25 +9,28 @@ SPIFFSLogger_t spiffs_logger = {
 
 static uint32_t log_start_time_ms = 0;
 static char csv_buffer[CSV_BUFFER_SIZE];
+static uint32_t log_file_counter = 0;  // Counter for unique filenames
 
 // ===== INTERNAL HELPERS =====
 
 /**
- * Generate timestamp-based filename
- * Format: YYYYMMDD_HHMMSS_description.csv
+ * Generate filename using millis() uptime counter
+ * Format: XXXXXX_XXXXXX_description.csv
+ * Where X are digits from uptime millis and counter
  */
 static void _make_filename(char *buf, size_t buf_size, const char *description) {
-    time_t now = time(nullptr);
-    struct tm* timeinfo = localtime(&now);
+    uint32_t ms = millis();
+    uint32_t uptime_sec = ms / 1000;
     
-    snprintf(buf, buf_size, "%s/%04d%02d%02d_%02d%02d%02d_%s.csv",
+    // Increment counter for each new log file
+    log_file_counter++;
+    
+    // Create unique filename: uptimeSec_counter_description
+    // Example: 001234_000042_hover.csv
+    snprintf(buf, buf_size, "%s/%06lu_%06lu_%s.csv",
         SPIFFS_LOG_DIR,
-        1900 + timeinfo->tm_year,
-        1 + timeinfo->tm_mon,
-        timeinfo->tm_mday,
-        timeinfo->tm_hour,
-        timeinfo->tm_min,
-        timeinfo->tm_sec,
+        uptime_sec % 1000000,       // 6-digit uptime seconds (modulo for overflow)
+        log_file_counter % 1000000, // 6-digit counter
         description
     );
 }
