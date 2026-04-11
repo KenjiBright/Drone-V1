@@ -174,20 +174,30 @@ void process_command(const String& cmd) {
         Serial.println("---");
       }
       else if (cmd == "4") {
+        // Stop logging before listing files
+        if (spiffs_logger.is_logging) {
+          SPIFFS_stopLog();
+          Serial.println("[SPIFFS] Logging stopped before listing files");
+        }
         menu_mode = MODE_EXPORT;
         beep();
         Serial.println("\n[SPIFFS] Available log files:");
         SPIFFS_listFiles();
         SPIFFS_printStats();
-        Serial.print("[SPIFFS] Export filename (e.g., 20260412_143630_hover.csv) or ENTER to skip: ");
+        Serial.print("[SPIFFS] Export filename (copy full name from list above) or ENTER to skip: ");
       }
       else if (cmd == "5") {
+        // Stop logging before listing files
+        if (spiffs_logger.is_logging) {
+          SPIFFS_stopLog();
+          Serial.println("[SPIFFS] Logging stopped before listing files");
+        }
         menu_mode = MODE_DELETE;
         beep();
         Serial.println("\n[SPIFFS] Available log files:");
         SPIFFS_listFiles();
         SPIFFS_printStats();
-        Serial.print("[SPIFFS] Delete filename (e.g., 20260412_143630_hover.csv) or ENTER to skip: ");
+        Serial.print("[SPIFFS] Delete filename (copy full name from list above) or ENTER to skip: ");
       }
       else {
         print_main_menu();
@@ -252,12 +262,12 @@ void process_command(const String& cmd) {
         menu_mode = MODE_MAIN;
         print_main_menu();
       } else {
-        // Append .csv if not present
+        // Use filename as-is (user copies from list)
         String filename = cmd;
-        if (!filename.endsWith(".csv")) {
-          filename += ".csv";
+        // Remove leading '/' if user included it
+        if (filename.startsWith("/")) {
+          filename = filename.substring(1);
         }
-        // Export file contents
         SPIFFS_exportCSV(filename.c_str());
         beep();
         Serial.println("[SPIFFS] Returning to main menu");
@@ -272,12 +282,11 @@ void process_command(const String& cmd) {
         menu_mode = MODE_MAIN;
         print_main_menu();
       } else {
-        // Append .csv if not present
+        // Use filename as-is
         String filename = cmd;
-        if (!filename.endsWith(".csv")) {
-          filename += ".csv";
+        if (filename.startsWith("/")) {
+          filename = filename.substring(1);
         }
-        // Save filename and ask for confirmation
         pending_delete_file = filename;
         menu_mode = MODE_DELETE_CONFIRM;
         Serial.print("[SPIFFS] Confirm delete ");

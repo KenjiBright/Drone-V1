@@ -19,6 +19,7 @@
 
 #define SPIFFS_LOG_DIR "/"
 #define SPIFFS_MAX_FILES 10
+#define SPIFFS_LOG_DIVIDER 5   // Log every N cycles (250/5 = 50Hz)
 #define CSV_BUFFER_SIZE 256
 
 typedef struct {

@@ -10,6 +10,7 @@ SPIFFSLogger_t spiffs_logger = {
 static uint32_t log_start_time_ms = 0;
 static char csv_buffer[CSV_BUFFER_SIZE];
 static uint32_t log_file_counter = 0;  // Counter for unique filenames
+static uint32_t log_cycle_counter = 0; // Divider counter for 50Hz logging
 
 // ===== INTERNAL HELPERS =====
 
@@ -71,6 +72,7 @@ void SPIFFS_startLog(const char *description) {
     spiffs_logger.is_logging = true;
     spiffs_logger.bytes_written = 0;
     log_start_time_ms = millis();
+    log_cycle_counter = 0;
     
     Serial.printf("[SPIFFS] ✓ Started logging to %s\n", spiffs_logger.filename);
 }
@@ -97,6 +99,13 @@ void SPIFFS_log_data(
     if (!spiffs_logger.is_logging || !spiffs_logger.current_file) {
         return;
     }
+    
+    // Only log every SPIFFS_LOG_DIVIDER cycles (250Hz / 5 = 50Hz)
+    log_cycle_counter++;
+    if (log_cycle_counter < SPIFFS_LOG_DIVIDER) {
+        return;
+    }
+    log_cycle_counter = 0;
     
     uint32_t time_ms = millis() - log_start_time_ms;
     
