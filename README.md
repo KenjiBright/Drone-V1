@@ -147,9 +147,90 @@ See [docs/TX_SETUP.md](docs/TX_SETUP.md) for detailed TX setup.
 
 - [**OVERVIEW.md**](docs/OVERVIEW.md) — Hardware, boot sequence, architecture
 - [**TX_SETUP.md**](docs/TX_SETUP.md) — RC transmitter configuration (Mode 2, channel mapping, ARM switch)
-- [**CALIBRATION.md**](docs/CALIBRATION.md) — IPCalibration procedures (gyro, accel, ESC)
+- [**TX_SETUP.md**](docs/TX_SETUP.md) — RC transmitter configuration (Mode 2, channel mapping, ARM switch)
+- [**CALIBRATION.md**](docs/CALIBRATION.md) — Calibration procedures (gyro, accel, ESC)
 - [**BLACKBOX.md**](docs/BLACKBOX.md) — CSV logging format, Excel analysis
 - [**PID_TUNING.md**](docs/PID_TUNING.md) — Live tuning, Kp/Ki/Kd guidelines, tuning workflow
+
+### Tools & Utilities
+
+**Python Black Box Capture & Analysis** → `tools/` directory
+
+```bash
+# Install dependencies
+pip install -r tools/requirements.txt
+
+# Capture 30 seconds of flight data with automatic analysis
+python tools/capture_blackbox.py --port COM17 --duration 30 --desc "test1"
+
+# Analyze existing CSV file
+python tools/capture_blackbox.py --analyze flight_20260412_143630_test1.csv
+
+# Windows quick-start
+tools\capture.bat
+```
+
+**Generates:**
+- **flight_YYYYMMDD_HHMMSS_description.csv** — Raw 50Hz sensor + PID data
+- **flight_YYYYMMDD_HHMMSS_description.png** — 6-subplot analysis chart (Roll/Pitch/Yaw response + components)
+- **Statistics** — RMS error, max error, throttle range per flight
+
+**Use cases:**
+- Verify PID tuning quality (setpoint tracking)
+- Diagnose oscillations (P/I/D component visualization)
+- Compare before/after tuning changes
+- Archive flight characteristics for analysis
+
+See [tools/README.md](tools/README.md) for full usage guide.
+
+### Tools
+
+**Python Black Box Capture & Analysis** (in `tools/` directory)
+
+```bash
+# Install dependencies
+pip install -r tools/requirements.txt
+
+# Capture 30 seconds of flight data
+python tools/capture_blackbox.py --port COM17 --duration 30 --desc "test1"
+
+# Analyze existing CSV file
+python tools/capture_blackbox.py --analyze flight_20260412_143630_test1.csv
+```
+
+**Features:**
+- Real-time capture from Serial port (50Hz Black Box data)
+- Automatic CSV parsing and error metric calculation (RMS, max)
+- Matplotlib visualization (6 subplots: Roll/Pitch/Yaw response + PID components)
+- Auto-exports PNG chart with timestamps
+- Windows/Linux/Mac support
+
+**Quick Start:**
+- Windows: Double-click `tools/capture.bat`
+- Linux/Mac: `chmod +x tools/capture.sh && ./capture.sh`
+- Details: See [tools/README.md](tools/README.md) and [tools/EXAMPLE_USAGE.md](tools/EXAMPLE_USAGE.md)
+
+---
+
+## 🔍 Data Analysis
+
+After each flight session, use the Python tools to capture and visualize PID performance:
+
+```bash
+# Real-time capture from drone (generates CSV + PNG chart)
+python tools/capture_blackbox.py --port COM17 --duration 30 --desc "hover_test"
+```
+
+**Output:**
+- CSV with Setpoint/Gyro/PID components per axis at 50Hz
+- PNG chart showing response curve + component breakdown
+- Metrics: RMS error (°), max error, throttle range
+
+**Analysis tips:**
+- If `roll_gyro` lags `roll_sp` → increase Kp
+- If `roll_gyro` overshoots `roll_sp` → increase Kd or decrease Kp
+- If motor oscillates → reduce Kp/Kd or increase D-filter Tf
+- Cross-check CSV against PNG for anomalies (glitches, clipping)
 
 ---
 
@@ -278,6 +359,8 @@ Built with:
 
 ---
 
-**Last Updated:** April 11, 2026  
+**Last Updated:** April 12, 2026  
 **Firmware Version:** 1.0.0  
-**Target Hardware:** ESP32 (esp32dev)
+**Tools Version:** 1.0.0  
+**Target Hardware:** ESP32 (esp32dev)  
+**Repository:** https://github.com/KenjiBright/Drone-V1
