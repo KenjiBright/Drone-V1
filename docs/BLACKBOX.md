@@ -1,9 +1,9 @@
-# Drone V1 - Black Box Log (CSV)
+# Drone V1 - Black Box Log (SPIFFS)
 
 ## Tổng quan
 
-Black Box ghi dữ liệu bay ra Serial Monitor ở định dạng CSV, tốc độ **50Hz**.
-Dùng để phân tích PID, debug và so sánh trước/sau khi điều chỉnh thông số.
+Black Box ghi dữ liệu bay vào **bộ nhớ flash nội bộ (SPIFFS)** ở định dạng CSV, tốc độ **50Hz**.
+Ghi nền (background) trên Core 1 song song với flight loop, không cần kết nối Serial khi bay.
 
 ---
 
@@ -11,11 +11,22 @@ Dùng để phân tích PID, debug và so sánh trước/sau khi điều chỉnh
 
 | Hành động | Cách làm |
 |---|---|
-| Bật log | Từ Menu chính nhấn `1` |
+| Bật log | Menu chính → `1` → nhập tên mô tả (Enter để dùng mặc định `log`) |
 | Dừng log | Nhấn `E` |
+| Xem danh sách file | Menu chính → `4` |
+| Xuất CSV qua Serial | Menu chính → `4` → nhập tên file |
+| Xóa file cũ | Menu chính → `5` → nhập tên file → xác nhận `YES` |
 
-Khi bật: còi kêu 1 tiếng, header CSV in ra.
-Khi dừng: còi kêu 1 tiếng, về Menu chính.
+Khi bật: còi kêu 1 tiếng, về Menu chính (log tiếp tục chạy nền).
+Khi dừng: hiển thị số byte đã ghi và tổng thời gian.
+
+### Tên file
+
+File được tự đặt tên theo công thức:
+```
+/bb_XXXXXX_XXXXXX_<mô tả>.csv
+```
+Vi dụ: `/bb_000042_000001_log.csv`
 
 ---
 
@@ -57,13 +68,17 @@ time_ms,thr,roll_sp,roll_gyro,roll_P,roll_I,roll_D,pitch_sp,pitch_gyro,pitch_P,p
 
 ## Đọc bằng Excel
 
-1. Trong Serial Monitor: chờ log chạy đủ thời gian, nhấn `E` để dừng
-2. Kéo chọn tất cả dòng CSV (từ dòng header trở xuống)
-3. Copy (Ctrl+C)
-4. Mở Excel → ô A1 → **Paste**
-5. Chọn cột A → tab **Data** → **Text to Columns**
-6. Chọn **Delimited** → Next → tích **Comma** → Finish
-7. Chọn cột `time_ms` làm trục X, vẽ biểu đồ Line Chart
+### Cách 1: Xuất qua Serial
+
+1. Kết nối Serial Monitor (115200)
+2. Menu → `4` → nhập tên file (copy từ danh sách)
+3. Kéo chọn toàn bộ dữ liệu giữa `---BEGIN CSV---` và `---END CSV---`
+4. Copy (Ctrl+C), mở Excel → ô A1 → **Paste**
+5. Chọn cột A → tab **Data** → **Text to Columns** → Delimited → Comma → Finish
+
+### Cách 2: Download file CSV trực tiếp (khuyến nghị)
+
+Sử dụng script `tools/download_spiffs_csv.py` để tải file từ ESP32 về máy tính. Xem [tools/README.md](../tools/README.md).
 
 ---
 

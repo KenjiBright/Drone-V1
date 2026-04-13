@@ -210,5 +210,9 @@ float IMU_get_rate_roll() { return rate_roll - calib_rate_roll; }
 float IMU_get_rate_pitch() { return rate_pitch - calib_rate_pitch; }
 float IMU_get_rate_yaw() { return rate_yaw - calib_rate_yaw; }
 
+float IMU_get_rate_roll_raw()  { return rate_roll; }
+float IMU_get_rate_pitch_raw() { return rate_pitch; }
+float IMU_get_rate_yaw_raw()   { return rate_yaw; }
+
 float IMU_get_angle_roll() { return angle_roll; }
 float IMU_get_angle_pitch() { return angle_pitch; }

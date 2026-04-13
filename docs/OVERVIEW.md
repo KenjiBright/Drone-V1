@@ -6,7 +6,7 @@
 |---|---|
 | Vi điều khiển | ESP32 |
 | IMU | ICM20602 (SPI) |
-| Receiver | SBUS (Serial2, RX=GPIO16) |
+| Receiver | SBUS (Serial2, RX=GPIO35) |
 | Motor FL | GPIO 27 (CCW) |
 | Motor FR | GPIO 26 (CW) |
 | Motor RR | GPIO 25 (CW) |
@@ -28,9 +28,11 @@ Khi cắm nguồn:
 ==============================
          MENU CHINH
 ==============================
- 1) Black Box Log (CSV)
+ 1) Black Box Log (SPIFFS)
  2) Calibration
  3) PID Tuning (Live)
+ 4) List / Export Black Box Files
+ 5) Delete Old Log Files
   >> Nhan E de thoat bat ky mode nao
 ==============================
 ```

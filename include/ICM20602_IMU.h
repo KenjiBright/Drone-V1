@@ -28,6 +28,9 @@ bool IMU_is_healthy();
 float IMU_get_rate_roll();
 float IMU_get_rate_pitch();
 float IMU_get_rate_yaw();
+float IMU_get_rate_roll_raw();
+float IMU_get_rate_pitch_raw();
+float IMU_get_rate_yaw_raw();
 float IMU_get_angle_roll();
 float IMU_get_angle_pitch();
 

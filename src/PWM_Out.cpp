@@ -1,7 +1,7 @@
 #include "PWM_Out.h"
 
-#define ESC_PWM_FREQ 1000       // 1kHz - Tối ưu cho Mamba F55
-#define ESC_PWM_RESOLUTION 11   // 11-bit = 2048 bước (phân giải 1.2µs)
+#define ESC_PWM_FREQ 400        // 400Hz - Tương thích BLHeli_32 standard PWM
+#define ESC_PWM_RESOLUTION 11   // 11-bit = 2048 bước, period=2500µs
 #define ESC_MIN_PWM 1000        // Standard RC minimum (1000 µs)
 #define ESC_MAX_PWM 2000        // Standard RC maximum (2000 µs)
 
@@ -9,8 +9,14 @@ static int esc_pins[4];
 
 static inline int pwm_limit(int v) {
   if (v < ESC_MIN_PWM) return ESC_MIN_PWM;
-  if (v > ESC_MAX_PWM) return ESC_MAX_PWM; 
+  if (v > ESC_MAX_PWM) return ESC_MAX_PWM;
   return v;
+}
+
+// Chuyển đổi µs → duty: tại 400Hz period=2500µs, resolution=2048
+// duty = pulse_us * 2048 / 2500
+static inline int us_to_duty(int us) {
+  return (int)((long)us * 2048 / 2500);
 }
 
 void PWM_setup_motor(int pin1, int pin2, int pin3, int pin4) {
@@ -24,22 +30,22 @@ void PWM_setup_motor(int pin1, int pin2, int pin3, int pin4) {
   for(int i=0; i<4; i++){
     ledcSetup(i, ESC_PWM_FREQ, ESC_PWM_RESOLUTION);
     ledcAttachPin(esc_pins[i], i);
-    ledcWrite(i, ESC_MIN_PWM);  // Gửi 1000µs - throttle min
+    ledcWrite(i, us_to_duty(ESC_MIN_PWM));  // Gửi 1000µs - throttle min
   }
   Serial.println("ESC da gui tin hieu min (1000 us).");
 }
 
 void PWM_motor(int m1, int m2, int m3, int m4, bool arm) {
   if (arm) {
-    ledcWrite(0, pwm_limit(m1)); 
-    ledcWrite(1, pwm_limit(m2));
-    ledcWrite(2, pwm_limit(m3)); 
-    ledcWrite(3, pwm_limit(m4));
+    ledcWrite(0, us_to_duty(pwm_limit(m1)));
+    ledcWrite(1, us_to_duty(pwm_limit(m2)));
+    ledcWrite(2, us_to_duty(pwm_limit(m3)));
+    ledcWrite(3, us_to_duty(pwm_limit(m4)));
   } else {
-    ledcWrite(0, ESC_MIN_PWM); 
-    ledcWrite(1, ESC_MIN_PWM);
-    ledcWrite(2, ESC_MIN_PWM); 
-    ledcWrite(3, ESC_MIN_PWM);
+    ledcWrite(0, us_to_duty(ESC_MIN_PWM));
+    ledcWrite(1, us_to_duty(ESC_MIN_PWM));
+    ledcWrite(2, us_to_duty(ESC_MIN_PWM));
+    ledcWrite(3, us_to_duty(ESC_MIN_PWM));
   }
 }
 

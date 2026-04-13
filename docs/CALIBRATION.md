@@ -32,7 +32,7 @@ Nhấn `E` để thoát về Menu chính.
 1. Đặt drone trên mặt **bằng phẳng, tuyệt đối yên tĩnh**
 2. Nhấn `1` + Enter → còi kêu 1 tiếng
 3. **Không chạm, không rung, không gió** trong ~10 giây
-4. Hệ thống thu thập 1000 mẫu gyro và tính offset
+4. Hệ thống thu thập 2000 mẫu gyro và tính offset
 5. **Còi kêu 3 tiếng** → hoàn tất
 6. Dữ liệu tự động lưu vào EEPROM
 

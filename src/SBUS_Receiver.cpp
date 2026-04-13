@@ -31,8 +31,8 @@ bool SBUS_update() {
 
     if (sbus_idx >= 25) {
       sbus_idx = 0;
-      // Xác thực frame
-      if (sbus_buf[0] != 0x0F || sbus_buf[24] != 0x00) {
+      // Xác thực frame (chỉ kiểm tra start byte, end byte có thể khác 0x00 tùy receiver)
+      if (sbus_buf[0] != 0x0F) {
         parse_errors++;
         return false;
       }
@@ -80,7 +80,7 @@ static inline uint16_t get_rc(uint8_t ch) {
 
 float SBUS_get_roll_target(float max_angle) {
   static float y = 0.0f;
-  float n = ((float)get_rc(1) - 1500) / 500.0f; 
+  float n = ((float)get_rc(2) - 1500) / 500.0f;  // TX: Roll = CH2
   float target = (fabs(n * max_angle) < DEADZONE_ANGLE) ? 0.0f : n * max_angle;
   y = y * (1.0f - FILTER_ALPHA) + target * FILTER_ALPHA;
   return y;
@@ -88,7 +88,7 @@ float SBUS_get_roll_target(float max_angle) {
 
 float SBUS_get_pitch_target(float max_angle) {
   static float y = 0.0f;
-  float n = ((float)get_rc(2) - 1500) / 500.0f;
+  float n = ((float)get_rc(1) - 1500) / 500.0f;  // TX: Pitch = CH1
   float target = (fabs(n * max_angle) < DEADZONE_ANGLE) ? 0.0f : n * max_angle;
   y = y * (1.0f - FILTER_ALPHA) + target * FILTER_ALPHA;
   return y;

@@ -29,8 +29,8 @@ Firmware sử dụng thứ tự kênh **AETR** (chuẩn quốc tế Mode 2):
 
 | Stick | Hướng | SBUS Channel | Chức năng | Dải |
 |---|---|---|---|---|
-| Phải ← → | Ngang | CH1 | **Roll** (Aileron) | ±30° |
-| Phải ↑ ↓ | Dọc | CH2 | **Pitch** (Elevator) | ±30° |
+| Phải ← → | Ngang | CH2 | **Roll** (Aileron) | ±30° |
+| Phải ↑ ↓ | Dọc | CH1 | **Pitch** (Elevator) | ±30° |
 | Trái ↑ ↓ | Dọc | CH3 | **Throttle** | 1000–2000 µs |
 | Trái ← → | Ngang | CH4 | **Yaw** (Rudder) | ±50°/s |
 
@@ -42,17 +42,32 @@ Firmware sử dụng thứ tự kênh **AETR** (chuẩn quốc tế Mode 2):
 
 | SBUS Channel | Chức năng | Gán trên TX | Giá trị |
 |---|---|---|---|
-| **CH5** | **ARM + LED** | Switch 2 vị trí (ví dụ: SWA hoặc SWB) | >1500µs = ARM + LED ON / <1500µs = DISARM + LED OFF |
+| **CH6** | **Flight Mode** | SA (3 vị trí) | <1200µs = Low / 1200–1700µs = Mid / >1700µs = High |
+| **CH7** | **ARM** | SB (2 vị trí) | **>1700µs = ARM** / ≤1700µs = DISARM |
 
-### Cài đặt ARM switch trên TX
+> ⚠️ **Chỉ vị trí HIGH (>1700µs) của CH7 mới kích hoạt ARM.** Mid và Low đều là DISARM.
+
+### Cài đặt ARM switch (SB → CH7) trên TX
 
 1. Vào **MIXER** hoặc **MIXES** trên TX
-2. Tìm **CH5**
-3. Gán nguồn (Source) = **SA**, **SB**, hoặc switch 2 vị trí bất kỳ
+2. Tìm **CH7**
+3. Gán nguồn (Source) = **SB**
 4. Đặt Weight = **100%**
 5. Đảm bảo:
-   - Switch **DOWN** (vị trí gần người) = giá trị thấp (~1000µs) = **DISARM**
-   - Switch **UP** (vị trí xa người) = giá trị cao (~2000µs) = **ARM**
+   - Switch **DOWN / MID** = giá trị thấp/giữa (≤1700µs) = **DISARM**
+   - Switch **UP** (vị trí xa người) = giá trị cao (>1700µs) = **ARM**
+
+### Cài đặt Mode switch (SA → CH6) trên TX
+
+1. Tìm **CH6**
+2. Gán nguồn = **SA** (switch 3 vị trí)
+3. 3 vị trí tương ứng Low / Mid / High:
+
+| Vị trí SA | Giá trị CH6 | Flight Mode |
+|---|---|---|
+| DOWN | <1200µs | FLIGHT_MODE_LOW |
+| MID | 1200–1700µs | FLIGHT_MODE_MID |
+| UP | >1700µs | FLIGHT_MODE_HIGH |
 
 ### Quy trình Arm an toàn
 
@@ -60,7 +75,7 @@ Firmware sử dụng thứ tự kênh **AETR** (chuẩn quốc tế Mode 2):
 1. Bật TX → bật RX/drone
 2. Đặt throttle stick THẤP NHẤT (hoàn toàn xuống dưới)
 3. Chờ 2 tiếng bíp (boot hoàn tất)
-4. Gạt ARM switch lên (CH5 > 1500)
+4. Gạt CH7 (SB) lên vị trí UP (>1700µs)
 5. Từ từ đẩy throttle lên để drone cất cánh
 ```
 
@@ -68,9 +83,8 @@ Firmware sử dụng thứ tự kênh **AETR** (chuẩn quốc tế Mode 2):
 
 ```
 1. Hạ throttle xuống thấp nhất
-2. Gạt ARM switch xuống (CH5 < 1500)
+2. Gạt CH7 (SB) xuống MID hoặc DOWN (≤1700µs)
    → Motor dừng ngay lập tức
-   → LED tắt
 ```
 
 ---
@@ -120,11 +134,12 @@ Mapped (µs):   990 ─────── 1500 ────── 2010
 
 | Kênh | Min (990µs) | Center (1500µs) | Max (2010µs) |
 |---|---|---|---|
-| CH1 Roll | Nghiêng trái -30° | Giữ thẳng 0° | Nghiêng phải +30° |
-| CH2 Pitch | Ngửa ra sau -30° | Giữ thẳng 0° | Chúi tới +30° |
+| CH1 Pitch | Ngửa ra sau -30° | Giữ thẳng 0° | Chúi tới +30° |
+| CH2 Roll | Nghiêng trái -30° | Giữ thẳng 0° | Nghiêng phải +30° |
 | CH3 Throttle | Motor tắt 1000µs | Nửa ga | Ga max 2000µs |
 | CH4 Yaw | Xoay trái -50°/s | Giữ yên 0 | Xoay phải +50°/s |
-| CH5 ARM | DISARM (<1500) | — | ARM (>1500) |
+| CH6 Mode | FLIGHT_MODE_LOW | FLIGHT_MODE_MID | FLIGHT_MODE_HIGH |
+| CH7 ARM | DISARM (≤1700) | DISARM (≤1700) | ARM (>1700) |
 
 ---
 
@@ -147,6 +162,6 @@ Sau khi gán channel trên TX, kiểm tra bằng cách:
 2. Vào Menu → 1 (Black Box Log)
 3. Quan sát cột `thr`: di chuyển throttle stick → giá trị thay đổi 1000–2000
 4. Quan sát cột `roll_sp` / `pitch_sp`: di chuyển stick phải → giá trị thay đổi ±30
-5. Gạt ARM switch → LED sáng
+5. Gạt CH7 (SB) lên UP → arm_switch active (drone armed nếu throttle > MIN)
 
 Nếu giá trị không phản ứng đúng → kiểm tra lại thứ tự channel trên TX.

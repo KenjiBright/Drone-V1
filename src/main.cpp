@@ -31,10 +31,17 @@ volatile float target_pitch    = 0.0f;
 volatile float target_yaw_rate = 0.0f;
 volatile int   throttle        = MIN_THROTTLE;
 volatile bool  failsafe_active = true;
-volatile bool  arm_switch      = false;   // AUX ch5 arm switch
+volatile bool  arm_switch      = false;   // CH7 (SB): HIGH (>1700) = ARM, MID/LOW = DISARM
+
+// Flight mode từ CH6 (SA): 0=Low, 1=Mid, 2=High
+enum FlightMode { FLIGHT_MODE_LOW = 0, FLIGHT_MODE_MID = 1, FLIGHT_MODE_HIGH = 2 };
+volatile FlightMode flight_mode = FLIGHT_MODE_LOW;
 
 // Trang thai arm truoc do (Core1 dung de detect transition)
 static bool was_armed = false;
+
+// Spinlock bảo vệ shared state giữa Core 0 (ghi) và Core 1 (đọc)
+static portMUX_TYPE shared_mux = portMUX_INITIALIZER_UNLOCKED;
 
 TaskHandle_t TaskCore0_Handle;
 TaskHandle_t TaskCore1_Handle;
@@ -376,18 +383,33 @@ void update_calibration() {
 void TaskCore0(void *pvParameters) {
   for (;;) {
     if (SBUS_update()) {
-      target_roll      = SBUS_get_roll_target(MAX_ROLL_ANGLE);
-      target_pitch     = SBUS_get_pitch_target(MAX_PITCH_ANGLE);
-      target_yaw_rate  = SBUS_get_yaw_rate_target(MAX_YAW_RATE);
-      throttle         = SBUS_get_throttle(MAX_THROTTLE);
-      // AUX ch5 (index 4): >1500 = ARM
-      arm_switch       = (SBUS_read_channel(4) > 1500);
-      failsafe_active  = false;
+      float nr = SBUS_get_roll_target(MAX_ROLL_ANGLE);
+      float np = SBUS_get_pitch_target(MAX_PITCH_ANGLE);
+      float ny = SBUS_get_yaw_rate_target(MAX_YAW_RATE);
+      int   nt = SBUS_get_throttle(MAX_THROTTLE);
+      // ARM: CH7 (index 6), chỉ HIGH (>1700) mới arm
+      bool  na = (SBUS_read_channel(6) > 1700);
+      // Mode: CH6 (index 5), 3 vị trí: Low(<1200) Mid(1200-1700) High(>1700)
+      uint16_t mode_raw = SBUS_read_channel(5);
+      FlightMode nmode = (mode_raw > 1700) ? FLIGHT_MODE_HIGH
+                       : (mode_raw > 1200) ? FLIGHT_MODE_MID
+                                           : FLIGHT_MODE_LOW;
+      portENTER_CRITICAL(&shared_mux);
+      target_roll     = nr;
+      target_pitch    = np;
+      target_yaw_rate = ny;
+      throttle        = nt;
+      arm_switch      = na;
+      flight_mode     = nmode;
+      failsafe_active = false;
+      portEXIT_CRITICAL(&shared_mux);
     }
     if (SBUS_failsafe()) {
+      portENTER_CRITICAL(&shared_mux);
       failsafe_active = true;
       arm_switch      = false;
-      throttle = MIN_THROTTLE;
+      throttle        = MIN_THROTTLE;
+      portEXIT_CRITICAL(&shared_mux);
     }
 
     LED_update();
@@ -410,19 +432,33 @@ void TaskCore1(void *pvParameters) {
     float dt = (now - (next_loop_time - LOOP_TIME_US)) / 1000000.0f;
     next_loop_time += LOOP_TIME_US;
 
+    // Đọc nhất quán shared state từ Core 0
+    portENTER_CRITICAL(&shared_mux);
+    float l_target_roll     = target_roll;
+    float l_target_pitch    = target_pitch;
+    float l_target_yaw_rate = target_yaw_rate;
+    int   l_throttle        = throttle;
+    bool  l_arm             = arm_switch;
+    bool  l_failsafe        = failsafe_active;
+    portEXIT_CRITICAL(&shared_mux);
+
     IMU_update(dt);
 
     if (!IMU_is_healthy() ||
         fabs(IMU_get_angle_roll())  > FLIP_THRESHOLD ||
         fabs(IMU_get_angle_pitch()) > FLIP_THRESHOLD) {
+      l_failsafe = true;
+      l_throttle = MIN_THROTTLE;
+      portENTER_CRITICAL(&shared_mux);
       failsafe_active = true;
-      throttle = MIN_THROTTLE;
+      throttle        = MIN_THROTTLE;
+      portEXIT_CRITICAL(&shared_mux);
     }
 
     // Dieu kien armed: arm_switch ON + throttle du + khong failsafe
-    bool armed = arm_switch &&
-                 (throttle > (MIN_THROTTLE + THROTTLE_MARGIN)) &&
-                 !failsafe_active;
+    bool armed = l_arm &&
+                 (l_throttle > (MIN_THROTTLE + THROTTLE_MARGIN)) &&
+                 !l_failsafe;
 
     // Detect disarm transition -> reset PID 1 lan
     if (was_armed && !armed) {
@@ -432,25 +468,25 @@ void TaskCore1(void *pvParameters) {
 
     float out_roll  = 0, out_pitch = 0, out_yaw = 0;
     if (armed) {
-      out_roll  = pid_roll.compute(target_roll,      IMU_get_angle_roll(),  dt);
-      out_pitch = pid_pitch.compute(target_pitch,    IMU_get_angle_pitch(), dt);
-      out_yaw   = pid_yaw.compute(target_yaw_rate,   IMU_get_rate_yaw(),    dt);
+      out_roll  = pid_roll.compute(l_target_roll,      IMU_get_angle_roll(),  dt);
+      out_pitch = pid_pitch.compute(l_target_pitch,    IMU_get_angle_pitch(), dt);
+      out_yaw   = pid_yaw.compute(l_target_yaw_rate,   IMU_get_rate_yaw(),    dt);
     }
 
     //  Motor layout (X-Quad):
     //  m1 FL (CCW)  m2 FR (CW)  m3 RR (CW)  m4 RL (CCW)
-    int m1 = throttle - out_pitch + out_roll - out_yaw;
-    int m2 = throttle - out_pitch - out_roll + out_yaw;
-    int m3 = throttle + out_pitch - out_roll + out_yaw;
-    int m4 = throttle + out_pitch + out_roll - out_yaw;
+    int m1 = l_throttle - out_pitch + out_roll - out_yaw;
+    int m2 = l_throttle - out_pitch - out_roll + out_yaw;
+    int m3 = l_throttle + out_pitch - out_roll + out_yaw;
+    int m4 = l_throttle + out_pitch + out_roll - out_yaw;
 
     PWM_motor(m1, m2, m3, m4, armed);
 
     SPIFFS_log_data(
-      throttle,
-      target_roll,      IMU_get_rate_roll(),  pid_roll.last_p,  pid_roll.last_i,  pid_roll.last_d,
-      target_pitch,     IMU_get_rate_pitch(), pid_pitch.last_p, pid_pitch.last_i, pid_pitch.last_d,
-      target_yaw_rate,  IMU_get_rate_yaw(),   pid_yaw.last_p,   pid_yaw.last_i,   pid_yaw.last_d
+      l_throttle,
+      l_target_roll,      IMU_get_rate_roll(),  pid_roll.last_p,  pid_roll.last_i,  pid_roll.last_d,
+      l_target_pitch,     IMU_get_rate_pitch(), pid_pitch.last_p, pid_pitch.last_i, pid_pitch.last_d,
+      l_target_yaw_rate,  IMU_get_rate_yaw(),   pid_yaw.last_p,   pid_yaw.last_i,   pid_yaw.last_d
     );
   }
 }

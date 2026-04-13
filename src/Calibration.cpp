@@ -3,7 +3,6 @@
 #include "PWM_Out.h"
 #include "Buzzer.h"
 #include <EEPROM.h>
-#include <Wire.h>
 
 // ===== BỐ CỤC EEPROM =====
 #define EEPROM_SIZE 512
@@ -103,18 +102,12 @@ void Calibration_imu_gyro_start() {
 
 void Calibration_imu_gyro_update() {
   if (current_mode != CALIB_IMU_GYRO || !calib_in_progress) return;
-  
-  // Đọc dữ liệu từ IMU (thường được gọi từ hàm update IMU chính)
-  Wire.beginTransmission(0x68);
-  Wire.write(0x43);  // Đọc gyro
-  if (Wire.endTransmission(false) != 0) return;
-  
-  if (Wire.requestFrom(0x68, 6, true) != 6) return;
-  
-  gyro_accum[0] += (float)(Wire.read() << 8 | Wire.read()) / 65.5f;
-  gyro_accum[1] += (float)(Wire.read() << 8 | Wire.read()) / 65.5f;
-  gyro_accum[2] += (float)(Wire.read() << 8 | Wire.read()) / 65.5f;
-  
+
+  // Đọc raw rate từ IMU qua SPI (trước khi trừ offset)
+  gyro_accum[0] += IMU_get_rate_roll_raw();
+  gyro_accum[1] += IMU_get_rate_pitch_raw();
+  gyro_accum[2] += IMU_get_rate_yaw_raw();
+
   calib_sample_count++;
   
   if (calib_sample_count % 500 == 0) {
